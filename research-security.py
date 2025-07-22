@@ -1,17 +1,20 @@
 import requests
 import pandas as pd
-import certifi
-print(certifi.where())
 
-BASE_URL = "https://api.openalex.org/works"
+BASE_URL = 'https://api.openalex.org/works'
 
 # Parameters
 params = {
-    "mailto": "rjgc.richard@gmail.com",
+    'mailto': 'rjgc.richard@gmail.com',
+    'per_page': 25
 }
 
 # Request
-response = requests.get(BASE_URL, params=params, verify=certifi.where())
-data = response.json()
+response = requests.get(BASE_URL, params=params)
+json = response.json()
 
-print(data)
+works = json['results']
+
+data = pd.DataFrame(works)
+
+print(data.head())
