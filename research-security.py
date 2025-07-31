@@ -8,22 +8,30 @@ def risk_calc(paper):
                 'navy', 'air force', 'artificial intelligence', 'quantum',
                 'semiconductor', 'microelectronic']
 
+    risky_authors = 0
+    total_authors = 0
+
     for author in paper.get('authorships', []):
-        if not author.get('author', {}).get('orcid'): 
-            score += 1
-        
+        total_authors += 1
         institutions = author.get('institutions', [])
-        print("Institutions:", institutions)
+        has_scored_country = False
+
         for inst in institutions:
-            country = inst.get('country_code')
-            name = inst.get("display_name", "").lower()
-    
-            if country in scored_countries:
-                score += scored_countries[country]
-    
+            country = inst.get('country_code', '').upper()
+            name = inst.get('display_name', '').lower()
+            
             for k in keywords:
                 if k in name:
                     score += 5
+                    
+            if not has_scored_country and country in scored_countries:
+                score += scored_countries[country]
+                risky_authors += 1
+                has_scored_country = True
+
+    if total_authors > 0:
+        proportion = risky_authors / total_authors
+        score += proportion * 10
         
     return score
 
