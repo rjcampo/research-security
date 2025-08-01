@@ -1,5 +1,8 @@
 import requests
 import pandas as pd
+import time
+import os
+import json
 
 def risk_calc(paper):
     score = 0
@@ -35,14 +38,31 @@ def risk_calc(paper):
         
     return score
 
+def get_author_metadata(orcid):
+    url = f"https://api.openalex.org/authors/ORCID:{orcid}"
+    response = requests.get(url, params={'mailto': 'rjgc.richard@gmail.com'})
+    
+    if response.status_code != 200:
+        return None
+
+    data = response.json()
+    return {
+        'orcid': orcid,
+        'works_count': data.get('works_count'),
+        'cited_by_count': data.get('cited_by_count'),
+        'last_known_institution': data.get('last_known_institution', {}).get('display_name'),
+        'h_index': data.get('summary_stats', {}).get('h_index'),
+        'display_name': data.get('display_name'),
+    }
+
 
 BASE_URL = 'https://api.openalex.org/works'
 
 # Parameters
 params = {
     'filter': 'publication_year:2024,authorships.institutions.country_code:cn|ru|ir|kp',
-    'mailto': 'rjgc.richard@gmail.com',
-    'per_page': 200
+    'mailto': 'rjgc.richard@gmail.com',  
+    'per_page': 5
 }
 
 # Request
@@ -58,12 +78,12 @@ for paper in results:
     for a in paper['authorships']:
         if a.get('author'):
             author_info = a.get('author')
-            name = author_info['display_name']
-            orcid = author_info['orcid']
+            name = author_info.get('display_name')
+            orcid = author_info.get('orcid')
             authors.append((name, orcid))
         
         if a.get('institutions'):
-            for inst in a['institutions']:
+            for inst in a.get('institutions'):
                 name = inst.get('display_name')
                 institutions.append(name)
     
@@ -107,4 +127,33 @@ author_risk_df = pd.DataFrame(author_risk_list)
 
 author_risk_df = author_risk_df.sort_values(by='average_score', ascending=False)
 
-print(author_risk_df.head())
+unique_orcids = author_risk_df['orcid'].dropna().unique()
+
+metadata_file = 'author_metadata.json'
+
+if os.path.exists(metadata_file):
+    with open(metadata_file, 'r') as f:
+        saved_metadata = json.load(f)
+else:
+    saved_metadata = []
+    
+saved_metadata_dict = {item['orcid']: item for item in saved_metadata}
+
+unique_orcids = [o for o in unique_orcids if o]
+orcids_to_fetch = [o for o in unique_orcids if o not in saved_metadata_dict]
+
+for orcid in orcids_to_fetch:
+    metadata = get_author_metadata(orcid)
+    if metadata:
+        saved_metadata_dict[orcid] = metadata
+    time.sleep(1)
+
+updated_metadata_list = list(saved_metadata_dict.values())
+
+with open(metadata_file, 'w') as f:
+    json.dump(updated_metadata_list, f, indent=2)
+
+author_metadata_df = pd.DataFrame(updated_metadata_list)
+merged_df = author_risk_df.merge(author_metadata_df, on='orcid', how='left')
+
+print(merged_df.sort_values('average_score', ascending='False'))
