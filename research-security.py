@@ -17,8 +17,8 @@ def risk_calc(paper):
         has_scored_country = False
 
         for inst in institutions:
-            country = inst.get('country_code', '').upper()
-            name = inst.get('display_name', '').lower()
+            country = inst.get('country_code')
+            name = inst.get('display_name')
             
             for k in keywords:
                 if k in name:
@@ -42,7 +42,7 @@ BASE_URL = 'https://api.openalex.org/works'
 params = {
     'filter': 'publication_year:2024,authorships.institutions.country_code:cn|ru|ir|kp',
     'mailto': 'rjgc.richard@gmail.com',
-    'per_page': 25
+    'per_page': 200
 }
 
 # Request
@@ -55,24 +55,53 @@ for paper in results:
     authors = []
     institutions = []
     
-    for a in paper["authorships"]:
-        if a.get("author"):
-            name = a["author"]["display_name"]
+    for a in paper['authorships']:
+        if a.get('author'):
+            name = a['author']['display_name']
             authors.append(name)
         
-        if a.get("institutions"):
-            for inst in a["institutions"]:
-                name = inst.get("display_name")
+        if a.get('institutions'):
+            for inst in a['institutions']:
+                name = inst.get('display_name')
                 institutions.append(name)
     
     pubs_data = {
-        "title": paper["title"],
-        "institutions": institutions,
-        "year": paper["publication_year"],
-        "score": risk_calc(paper)
+        'title': paper['title'],
+        'authors': authors,
+        'institutions': institutions,
+        'year': paper['publication_year'],
+        'score': risk_calc(paper)
     }
     scored_data.append(pubs_data)
+    
+author_risks = {}
 
-df = pd.DataFrame(scored_data)
+for paper in scored_data:
+    authors = paper['authors']
+    score = paper['score']
+    
+    for author in authors:
+        if author not in author_risks:
+            author_risks[author] = {
+                'total_score': 0,
+                'num_papers': 0
+            }
+        author_risks[author]['total_score'] += score
+        author_risks[author]['num_papers'] += 1
 
-print(df.head())
+author_risk_list = []
+
+for author, data in author_risks.items():
+    author_dict = {
+        "author": author,
+        "total_score": data["total_score"],
+        "num_papers": data["num_papers"],
+        "average_score": data["total_score"] / data["num_papers"]
+    }
+    author_risk_list.append(author_dict)
+
+author_risk_df = pd.DataFrame(author_risk_list)
+
+author_risk_df = author_risk_df.sort_values(by='average_score', ascending=False)
+
+print(author_risk_df.head())
