@@ -57,8 +57,10 @@ for paper in results:
     
     for a in paper['authorships']:
         if a.get('author'):
-            name = a['author']['display_name']
-            authors.append(name)
+            author_info = a.get('author')
+            name = author_info['display_name']
+            orcid = author_info['orcid']
+            authors.append((name, orcid))
         
         if a.get('institutions'):
             for inst in a['institutions']:
@@ -91,12 +93,13 @@ for paper in scored_data:
 
 author_risk_list = []
 
-for author, data in author_risks.items():
+for (name, orcid), data in author_risks.items():
     author_dict = {
-        "author": author,
-        "total_score": data["total_score"],
-        "num_papers": data["num_papers"],
-        "average_score": data["total_score"] / data["num_papers"]
+        'name': name,
+        'orcid': orcid,
+        'total_score': data['total_score'],
+        'num_papers': data['num_papers'],
+        'average_score': data['total_score'] / data['num_papers']
     }
     author_risk_list.append(author_dict)
 
